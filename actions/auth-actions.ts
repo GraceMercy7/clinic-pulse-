@@ -4,6 +4,7 @@ import { AuthError } from "next-auth"
 import { prisma } from "@/lib/db"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
+import { redirect } from "next/navigation"
 
 const RegisterSchema = z.object({
     name: z.string().min(2),
@@ -42,20 +43,13 @@ export async function registerUser(prevState: any, formData: FormData) {
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10)
-
         await prisma.user.create({
             data: {
                 name,
                 email,
                 password: hashedPassword,
-                role: 'ADMIN', // Grant full access as requested
-                doctorProfile: { // Create a dummy profile so they show up as a doctor if needed, or just admin
-                    create: {
-                        specialization: 'General',
-                        availability: JSON.stringify({ mon: ['09:00-17:00'] })
-                    }
-                }
-            }
+                role: 'ADMIN',
+            },
         })
     } catch (error: any) {
         console.error(error)
@@ -65,18 +59,17 @@ export async function registerUser(prevState: any, formData: FormData) {
         return { message: 'Database Error: Failed to Register.' }
     }
 
-    // Auto-login after registration
     try {
-        await signIn('credentials', formData)
+        await signIn('credentials', {
+            redirect: false,
+            email,
+            password,
+        })
     } catch (error) {
         if (error instanceof AuthError) {
-            switch (error.type) {
-                case 'CredentialsSignin':
-                    return { message: 'Registration successful but failed to auto-login.' }
-                default:
-                    return { message: 'Something went wrong during auto-login.' }
-            }
+            return { message: 'Account created. Please log in.' }
         }
         throw error
     }
+    redirect('/dashboard')
 }
