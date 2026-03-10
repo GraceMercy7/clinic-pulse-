@@ -57,8 +57,11 @@ export async function registerUser(prevState: any, formData: FormData) {
                 }
             }
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error(error)
+        if (error?.code === 'P2002') {
+            return { message: 'An account with this email already exists. Please log in instead.' }
+        }
         return { message: 'Database Error: Failed to Register.' }
     }
 
